@@ -18,10 +18,10 @@ extern unsigned long motorClock;
 extern unsigned long currentMillis;
 extern unsigned long previousMillis;
 
-extern int joyThrottle ; // 
-extern int joyYaw ; // 
-extern int joyRoll ; // 
-extern int joyPitch ; //
+extern char joyThrottle ; // 
+extern char joyYaw ; // 
+extern char joyRoll ; // 
+extern char joyPitch ; //
 
 struct Vector3{
     int16_t x;
@@ -38,8 +38,11 @@ extern Vector3 rawAccel;
 extern Vector3 rawGyro;
 extern Vector3 accel;
 extern Vector3 gyro;
+extern Vector3 otherAccel;
+extern Vector3 otherGyro;
 
 extern MPU6050 imu;
 
+extern String droneStatus;
 
 #endif /* RES_UAV_MAIN_H_ */
