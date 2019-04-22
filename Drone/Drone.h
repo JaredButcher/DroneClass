@@ -18,10 +18,10 @@ extern unsigned long motorClock;
 extern unsigned long currentMillis;
 extern unsigned long previousMillis;
 
-extern char joyThrottle ; // 
-extern char joyYaw ; // 
-extern char joyRoll ; // 
-extern char joyPitch ; //
+extern uint8_t joyThrottle ; // 
+extern uint8_t joyYaw ; // 
+extern uint8_t joyRoll ; // 
+extern uint8_t joyPitch ; //
 
 struct Vector3{
     int16_t x;

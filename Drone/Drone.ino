@@ -9,12 +9,12 @@ unsigned long motorClock = 0;
 unsigned long currentMillis = 0;
 unsigned long previousMillis = 0;
 
-char joyThrottle =0 ; // 
-char joyYaw  =0 ; // 
-char joyRoll  =0 ; // 
-char joyPitch  =0 ; // 
+uint8_t joyThrottle =0 ; // 
+uint8_t joyYaw  =0 ; // 
+uint8_t joyRoll  =0 ; // 
+uint8_t joyPitch  =0 ; //
 
-String droneStatus = "";
+String droneStatus = "Disconnected";
 
 Vector3 rawAccel;
 Vector3 rawGyro;
@@ -43,7 +43,14 @@ void loop() {
   currentMillis = millis();
   updateCommand();
   updatePlan();
-  updateAction();
+  #ifdef ARDUINO_AVR_NANO
+    updateMotors();
+  #endif
+  #ifdef ARDUINO_AVR_MEGA2560
+    updateJoy();
+    printIMU();
+    updateScreen();
+  #endif
   previousMillis = currentMillis;
   pollIMU();
   if(currentMillis > reqTimer + UPDATE_DELAY_MS){
@@ -54,10 +61,6 @@ void loop() {
       reqStatus();
     #endif
   }
-  #ifdef ARDUINO_AVR_MEGA2560
-    updateScreen();
-    updateJoy();
-  #endif
 }
 
 void initialization(){
@@ -76,46 +79,90 @@ void initialization(){
     pinMode(A3, INPUT);
     pinMode(A4, INPUT);
     pinMode(A5, INPUT);
+    pinMode(6, OUTPUT);
   #endif
   blueToothSerial.begin(9600);
   init_buffer();
 }
 
-int16_t filter(int16_t oldValue, int16_t newValue){
-  return (oldValue << 2 + oldValue << 4 + oldValue << 8)+ newValue << 8;
+int16_t filter(uint8_t power, int16_t oldValue, int16_t newValue){
+  return oldValue - (oldValue >> power)+ newValue >> power;
 }
 
 void pollIMU(){
     imu.getMotion6(&rawAccel.x, &rawAccel.y, &rawAccel.z, &rawGyro.x, &rawGyro.y, &rawGyro.z);
-    accel.x = filter(accel.x, rawAccel.x);
-    accel.y = filter(accel.y, rawAccel.y);
-    accel.z = filter(accel.z, rawAccel.z);
-    gyro.x = filter(gyro.x, rawGyro.x);
-    gyro.y = filter(gyro.y, rawGyro.y);
-    gyro.z = filter(gyro.z, rawGyro.z);
+    accel.x = filter(4, accel.x, rawAccel.x);
+    accel.y = filter(4, accel.y, rawAccel.y);
+    accel.z = filter(4, accel.z, rawAccel.z);
+    gyro.x = filter(4, gyro.x, rawGyro.x);
+    gyro.y = filter(4, gyro.y, rawGyro.y);
+    gyro.z = filter(4, gyro.z, rawGyro.z);
 }
 
 void updateJoy(){
-  joyThrottle = analogRead(A2);
-  joyYaw  = analogRead(A1);
-  joyRoll  = analogRead(A4);
-  joyPitch  = analogRead(A5);
+  joyThrottle = analogRead(A1) >> 2;
+  joyYaw  = analogRead(A0) >> 2;
+  joyRoll  = analogRead(A4) >> 2;
+  joyPitch  = analogRead(A3) >> 2;
 }
 
 void updatePlan(){}
 
-void updateAction(){}
+#define kp 1
+#define ki 0
+#define kd 0
+#define defaultX 0
+#define defaultY 0
+#define defaultZ 0
+
+Vector3 error;
+Vector3 pastError;
+Vector3 gyroGoal;
+gyroGoal.x = defaultX;
+gyroGoal.y = defaultY;
+gyroGoal.z = defaultZ;
+
+void updateMotors(){
+    error.x = kp * (gyroGoal.x - gyro.x) + ki * pastError.x;;
+    pastError.x += error.x;
+    pastError.y = filter(6, pastError.y, gyro.y);
+    pastError.z = filter(6, pastError.z, gyro.x);
+}
 
 void updateSensors(){}
+
+void printIMU(){
+  Serial.print("ax: ");
+  Serial.print(accel.x);
+  Serial.print(" ay: ");
+  Serial.print(accel.y);
+  Serial.print(" az: ");
+  Serial.print(accel.z);
+  Serial.print(" gx: ");
+  Serial.print(gyro.x);
+  Serial.print(" gy: ");
+  Serial.print(gyro.y);
+  Serial.print(" gz: ");
+  Serial.print(gyro.z);
+  Serial.println();
+}
 
 void updateScreen(){
   display.clearDisplay();
 
   if(bluetoothConnected){
-    display.fillRect(90, 0, 8, 6, WHITE);
+    display.fillRect(80, 0, 8, 6, WHITE);
   }else{
-    display.drawRect(90, 0, 8, 6, WHITE);
+    display.drawRect(80, 0, 8, 6, WHITE);
   }
+  display.drawRect(105, 0, 4, 16, WHITE);
+  display.fillRect(105, 0, 4, joyThrottle >> 4, WHITE);
+  display.drawRect(110, 0, 4, 16, WHITE);
+  display.fillRect(110, 0, 4, joyYaw >> 4, WHITE);
+  display.drawRect(115, 0, 4, 16, WHITE);
+  display.fillRect(115, 0, 4, joyPitch >> 4, WHITE);
+  display.drawRect(120, 0, 4, 16, WHITE);
+  display.fillRect(120, 0, 4, joyRoll >> 4, WHITE);
   
   display.setTextColor(WHITE);
   display.setCursor(30,32);
